@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สื่อการเรียนรู้: ฟังก์ชันกำลังสองพร้อมระบบลงทะเบียน</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        .math-font { font-family: 'Cambria Math', 'Times New Roman', serif; font-style: italic; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { opacity: 1; }
+        
+        /* Custom Slider */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px;
+            border-radius: 50%; background: #4f46e5; cursor: pointer;
+            margin-top: -6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 8px; cursor: pointer; background: #e2e8f0;
+            border-radius: 4px;
+        }
+
+        /* Spinner for loading state */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4f46e5;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
+        <div class="spinner mb-4"></div>
+        <p class="text-slate-600 font-medium animate-pulse">กำลังเชื่อมต่อระบบฐานข้อมูล...</p>
+    </div>
+
+    <!-- Screen 1: Registration Form -->
+    <div id="registration-screen" class="hidden min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-100 to-blue-200">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800">ลงทะเบียนเข้าเรียน</h1>
+                <p class="text-sm text-slate-500 mt-2">สื่อการเรียนรู้: ฟังก์ชันกำลังสอง</p>
+            </div>
+            
+            <form id="reg-form" class="space-y-4" onsubmit="handleRegistration(event)">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อ - นามสกุล</label>
+                    <input type="text" id="reg-name" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="เช่น เด็กชายรักเรียน ขยันยิ่ง">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">รหัสนักเรียน</label>
+                    <input type="text" id="reg-id" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="เช่น 64001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">ชั้นเรียน / ห้อง</label>
+                    <input type="text" id="reg-class" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="เช่น ม.4/1">
+                </div>
+                
+                <button type="submit" id="btn-submit-reg" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 mt-4">
+                    เข้าสู่บทเรียน
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Screen 2: Main Application -->
+    <div id="main-screen" class="hidden pb-12">
+        <!-- Header -->
+        <header class="bg-indigo-700 text-white shadow-md mb-8 relative">
+            <div class="max-w-7xl mx-auto px-4 py-6 md:px-8 flex flex-col md:flex-row justify-between items-center">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold flex items-center">
+                        <svg class="w-8 h-8 mr-3 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        ห้องทดลองคณิตศาสตร์: ฟังก์ชันกำลังสอง
+                    </h1>
+                    <p class="text-indigo-200 mt-2 text-sm md:text-base">ยินดีต้อนรับ, <span id="display-user-name" class="font-semibold text-white"></span></p>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 md:px-8 space-y-8">
+            
+            <!-- SECTION 1: Interactive Graph & Controls -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left: Graph Area -->
+                <div class="lg:col-span-7 flex flex-col space-y-4">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative">
+                        <!-- Toolbar on Graph -->
+                        <div class="absolute top-4 right-4 z-10 flex space-x-2">
+                            <button onclick="saveGhostGraph()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm py-2 px-3 sm:px-4 rounded-lg shadow-sm border border-slate-300 transition flex items-center font-medium">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                บันทึกรอยเดิม (Ghost)
+                            </button>
+                            <button onclick="clearGhostGraph()" class="bg-slate-100 hover:bg-red-50 text-red-600 text-sm py-2 px-3 rounded-lg shadow-sm border border-slate-300 transition" title="ลบรอยเดิม">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                        <div class="w-full h-[250px] sm:h-[300px] relative mt-14">
+                            <canvas id="graphCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Controls & Properties -->
+                <div class="lg:col-span-5 space-y-6">
+                    
+                    <!-- Equations Display -->
+                    <div class="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-md text-white">
+                        <h2 class="text-sm font-semibold text-indigo-200 mb-3 uppercase tracking-wider">สมการฟังก์ชัน (Equations)</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <span class="text-xs text-indigo-200">รูปทั่วไป (General Form): y = ax² + bx + c</span>
+                                <div class="text-xl sm:text-2xl font-bold math-font mt-1" id="eq-general">y = x²</div>
+                            </div>
+                            <div class="border-t border-indigo-400/30 pt-3">
+                                <span class="text-xs text-indigo-200">รูปมาตรฐาน (Standard Form): y = a(x-h)² + k</span>
+                                <div class="text-xl sm:text-2xl font-bold math-font mt-1" id="eq-standard">y = (x - 0)² + 0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Variable Controls -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h2 class="text-lg font-bold text-slate-800">ปรับตัวแปร (Variables)</h2>
+                            <button onclick="resetValues()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">รีเซ็ต (Reset)</button>
+                        </div>
+                        
+                        <!-- Control A -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="font-medium text-slate-700 w-1/4">ค่า a</label>
+                                <input type="range" id="slide-a" min="-5" max="5" step="0.1" value="1" class="w-2/4 mx-2">
+                                <input type="number" id="num-a" min="-5" max="5" step="0.1" value="1" class="w-1/4 p-1.5 border border-slate-300 rounded-md text-center font-bold text-indigo-700 bg-indigo-50 outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        
+                        <!-- Control B -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="font-medium text-slate-700 w-1/4">ค่า b</label>
+                                <input type="range" id="slide-b" min="-10" max="10" step="1" value="0" class="w-2/4 mx-2">
+                                <input type="number" id="num-b" min="-10" max="10" step="1" value="0" class="w-1/4 p-1.5 border border-slate-300 rounded-md text-center font-bold text-indigo-700 bg-indigo-50 outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <!-- Control C -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="font-medium text-slate-700 w-1/4">ค่า c</label>
+                                <input type="range" id="slide-c" min="-10" max="10" step="1" value="0" class="w-2/4 mx-2">
+                                <input type="number" id="num-c" min="-10" max="10" step="1" value="0" class="w-1/4 p-1.5 border border-slate-300 rounded-md text-center font-bold text-indigo-700 bg-indigo-50 outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Properties Panel -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h2 class="text-lg font-bold text-slate-800 border-b pb-2 mb-4">คุณสมบัติของกราฟ (Properties)</h2>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="block text-slate-500 mb-1">จุดยอด (Vertex)</span>
+                                <span class="text-base font-semibold text-slate-800" id="prop-vertex">(0, 0)</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="block text-slate-500 mb-1">จุดตัดแกน Y</span>
+                                <span class="text-base font-semibold text-slate-800" id="prop-yint">(0, 0)</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 col-span-2 flex flex-col justify-center">
+                                <span class="block text-slate-500 mb-1">จุดตัดแกน X (Roots)</span>
+                                <span class="text-base font-semibold text-slate-800" id="prop-xint">x = 0</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="block text-slate-500 mb-1">โดเมน (Domain)</span>
+                                <span class="text-sm font-semibold text-slate-800">จำนวนจริง (R)</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="block text-slate-500 mb-1">เรนจ์ (Range)</span>
+                                <span class="text-sm font-semibold text-slate-800" id="prop-range">y ≥ 0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <hr class="border-slate-200 my-8">
+
+            <!-- SECTION 2: Assessment & Challenges -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- Interactive Challenge -->
+                <div class="bg-amber-50 p-6 rounded-2xl shadow-sm border border-amber-200">
+                    <div class="flex items-center mb-4 text-amber-700">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <h2 class="text-xl font-bold">ภารกิจท้าทาย (Interactive Challenge)</h2>
+                    </div>
+                    <p class="text-slate-700 mb-6 bg-white p-4 rounded-lg border border-amber-100">
+                        <strong>คำสั่ง:</strong> จงปรับค่า <span class="font-mono text-indigo-600">a, b, c</span> ด้านบน 
+                        เพื่อให้กราฟมี <strong>"จุดยอด (Vertex) อยู่ที่พิกัด (2, -3)"</strong> และเป็น <strong>"กราฟหงาย"</strong>
+                    </p>
+                    <button onclick="checkChallenge()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200">
+                        ตรวจคำตอบภารกิจ
+                    </button>
+                    <div id="challenge-result" class="hidden mt-4 text-center font-medium"></div>
+                </div>
+
+                <!-- Quiz Section -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        แบบทดสอบความเข้าใจ (Quiz)
+                    </h2>
+                    
+                    <div class="space-y-8">
+                        <!-- Q1 -->
+                        <div class="quiz-item">
+                            <p class="font-semibold text-slate-800 mb-3 text-sm sm:text-base">1. จุดยอด (Vertex) ของกราฟฟังก์ชัน <span class="math-font">y = -2x² + 4x - 5</span> คือจุดใด?</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm sm:text-base">
+                                <button onclick="checkQuiz(this, false, 'exp-1')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ก. (1, 3)</button>
+                                <button onclick="checkQuiz(this, true, 'exp-1')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ข. (1, -3)</button>
+                                <button onclick="checkQuiz(this, false, 'exp-1')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ค. (-1, 3)</button>
+                                <button onclick="checkQuiz(this, false, 'exp-1')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ง. (-1, -3)</button>
+                            </div>
+                            <div id="exp-1" class="hidden mt-3 p-4 bg-indigo-50 rounded-lg text-sm text-slate-700 border-l-4 border-indigo-500">
+                                <strong>เฉลยและวิธีทำ:</strong> ตอบข้อ ข. (1, -3)<br>
+                                จากสมการ a = -2, b = 4, c = -5<br>
+                                หาพิกัด x (h): <code>h = -b / 2a = -4 / (2(-2)) = 1</code><br>
+                                หาพิกัด y (k): แทน x=1 ลงในสมการ <code>y = -2(1)² + 4(1) - 5 = -3</code>
+                            </div>
+                        </div>
+
+                        <!-- Q2 -->
+                        <div class="quiz-item">
+                            <p class="font-semibold text-slate-800 mb-3 text-sm sm:text-base">2. กราฟฟังก์ชัน <span class="math-font">y = x² - 6x + 9</span> ตัดแกน X ทั้งหมดกี่จุด?</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm sm:text-base">
+                                <button onclick="checkQuiz(this, false, 'exp-2')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ก. ไม่ตัดแกน X เลย</button>
+                                <button onclick="checkQuiz(this, true, 'exp-2')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ข. 1 จุด (สัมผัส)</button>
+                                <button onclick="checkQuiz(this, false, 'exp-2')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ค. 2 จุด</button>
+                                <button onclick="checkQuiz(this, false, 'exp-2')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ง. 3 จุด</button>
+                            </div>
+                            <div id="exp-2" class="hidden mt-3 p-4 bg-indigo-50 rounded-lg text-sm text-slate-700 border-l-4 border-indigo-500">
+                                <strong>เฉลยและวิธีทำ:</strong> ตอบข้อ ข. 1 จุด<br>
+                                ใช้ค่าดิสคริมิแนนต์ <code>Δ = b² - 4ac</code><br>
+                                <code>Δ = (-6)² - 4(1)(9) = 36 - 36 = 0</code><br>
+                                เนื่องจาก Δ = 0 กราฟจึงมีจุดตัดแกน X เพียง 1 จุด
+                            </div>
+                        </div>
+
+                        <!-- Q3 -->
+                        <div class="quiz-item">
+                            <p class="font-semibold text-slate-800 mb-3 text-sm sm:text-base">3. โดเมนและเรนจ์ของ <span class="math-font">y = x² + 2</span> คืออะไร?</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm sm:text-base">
+                                <button onclick="checkQuiz(this, true, 'exp-3')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ก. D = R, R = [2, ∞)</button>
+                                <button onclick="checkQuiz(this, false, 'exp-3')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ข. D = [2, ∞), R = R</button>
+                                <button onclick="checkQuiz(this, false, 'exp-3')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ค. D = R, R = [-2, ∞)</button>
+                                <button onclick="checkQuiz(this, false, 'exp-3')" class="text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition">ง. D = R, R = R</button>
+                            </div>
+                            <div id="exp-3" class="hidden mt-3 p-4 bg-indigo-50 rounded-lg text-sm text-slate-700 border-l-4 border-indigo-500">
+                                <strong>เฉลยและวิธีทำ:</strong> ตอบข้อ ก. <br>
+                                <strong>โดเมน:</strong> x เป็นจำนวนจริงใดๆ ก็ได้ (D = R)<br>
+                                <strong>เรนจ์:</strong> เนื่องจาก <code>x² ≥ 0</code> เสมอ ดังนั้น <code>x² + 2 ≥ 2</code><br>
+                                นั่นคือ ค่า y ต่ำสุดคือ 2 เรนจ์จึงเป็น [2, ∞)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex justify-center mt-12">
+                <button onclick="showAdminModal()" class="text-slate-400 hover:text-indigo-600 transition text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    ระบบหลังบ้าน (Admin Dashboard)
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div id="admin-modal" class="hidden fixed inset-0 flex items-center justify-center bg-slate-900/50 z-50 px-4">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">เข้าสู่ระบบหลังบ้าน</h3>
+            <p class="text-sm text-slate-600 mb-4">กรุณากรอกรหัสผ่านเพื่อเข้าสู่ Admin Dashboard</p>
+            <input type="password" id="admin-password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none mb-4" placeholder="รหัสผ่าน">
+            <div id="admin-error" class="hidden text-red-500 text-sm mb-4">รหัสผ่านไม่ถูกต้อง!</div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeAdminModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">ยกเลิก</button>
+                <button onclick="verifyAdminPassword()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition font-medium">เข้าสู่ระบบ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 3: Admin Dashboard -->
+    <div id="admin-screen" class="hidden min-h-screen pb-12 bg-slate-50">
+        <header class="bg-slate-800 text-white shadow-md mb-8">
+            <div class="max-w-7xl mx-auto px-4 py-6 md:px-8 flex justify-between items-center">
+                <h1 class="text-xl md:text-2xl font-bold flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    ระบบหลังบ้าน (Admin Dashboard)
+                </h1>
+                <button onclick="logoutAdmin()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm transition">
+                    กลับสู่หน้าแอป
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 md:px-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800">รายชื่อนักเรียนที่เข้าใช้งาน</h2>
+                    <button onclick="fetchStudents()" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        รีเฟรชข้อมูล
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
+                                <th class="py-3 px-6 font-semibold">ลำดับ</th>
+                                <th class="py-3 px-6 font-semibold">รหัสนักเรียน</th>
+                                <th class="py-3 px-6 font-semibold">ชื่อ - นามสกุล</th>
+                                <th class="py-3 px-6 font-semibold">ชั้นเรียน</th>
+                                <th class="py-3 px-6 font-semibold">เวลาที่เข้าใช้งาน</th>
+                                <th class="py-3 px-6 font-semibold">คะแนนแบบทดสอบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body" class="text-sm">
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-slate-500">กำลังโหลดข้อมูล...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase Imports and Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global context injected variables setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'demo-quadratic-app-id';
+        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        
+        let app, db, auth, studentsCollectionRef;
+        let currentStudentDocId = null;
+
+        async function initFirebase() {
+            try {
+                // Initialize Firebase
+                let config = {};
+                if (firebaseConfigStr && firebaseConfigStr !== '{}') {
+                     config = JSON.parse(firebaseConfigStr);
+                } else {
+                    // Fallback to empty for local viewing structure
+                    console.warn("No firebase config provided by environment.");
+                }
+
+                app = initializeApp(config);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Auth
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Setup DB Path (CRITICAL RULE 1)
+                studentsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+                
+                // Hide loading, show registration
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('registration-screen').classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                document.getElementById('loading-screen').innerHTML = `<p class='text-red-500'>เกิดข้อผิดพลาดในการเชื่อมต่อ: ${error.message}</p>`;
+            }
+        }
+
+        // Run initialization
+        initFirebase();
+
+        // -------------------------
+        // Registration Logic
+        // -------------------------
+        window.handleRegistration = async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('reg-name').value;
+            const studentId = document.getElementById('reg-id').value;
+            const className = document.getElementById('reg-class').value;
+            const btn = document.getElementById('btn-submit-reg');
+            
+            if(!auth.currentUser) {
+                alert("เกิดข้อผิดพลาดในการยืนยันตัวตน โปรดโหลดหน้าเว็บใหม่");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = 'กำลังบันทึกข้อมูล...';
+
+            try {
+                // Save to Firestore
+                const docRef = await addDoc(studentsCollectionRef, {
+                    name: name,
+                    studentId: studentId,
+                    className: className,
+                    timestamp: new Date().toISOString(),
+                    uid: auth.currentUser.uid, // Tracking who saved it
+                    quizAttempted: false,
+                    quizScore: 0
+                });
+                
+                // เก็บ Document ID ไว้สำหรับอัปเดตคะแนน
+                currentStudentDocId = docRef.id;
+
+                // Transition UI
+                document.getElementById('display-user-name').innerText = name;
+                document.getElementById('registration-screen').classList.add('hidden');
+                document.getElementById('main-screen').classList.remove('hidden');
+                
+                // Initialize Chart (must be done after main-screen is visible)
+                initChart();
+
+            } catch (error) {
+                console.error("Error saving student data:", error);
+                alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+                btn.disabled = false;
+                btn.innerHTML = 'เข้าสู่บทเรียน';
+            }
+        };
+
+        // -------------------------
+        // Admin Dashboard Logic
+        // -------------------------
+        
+        // ฟังก์ชันสำหรับอัปเดตคะแนนขึ้น Firebase
+        window.updateScoreInFirebase = async function(score) {
+            if (!currentStudentDocId) return;
+            try {
+                const studentDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', currentStudentDocId);
+                await updateDoc(studentDoc, { 
+                    quizScore: score,
+                    quizAttempted: true
+                });
+            } catch (error) {
+                console.error("Error updating score:", error);
+            }
+        };
+
+        window.showAdminModal = function() {
+            document.getElementById('admin-modal').classList.remove('hidden');
+            document.getElementById('admin-password').value = '';
+            document.getElementById('admin-error').classList.add('hidden');
+        };
+
+        window.closeAdminModal = function() {
+            document.getElementById('admin-modal').classList.add('hidden');
+        };
+
+        window.verifyAdminPassword = function() {
+            const pwd = document.getElementById('admin-password').value;
+            if (pwd === '123456') {
+                closeAdminModal();
+                // Switch screen
+                document.getElementById('registration-screen').classList.add('hidden');
+                document.getElementById('main-screen').classList.add('hidden');
+                document.getElementById('admin-screen').classList.remove('hidden');
+                // Fetch data
+                window.fetchStudents();
+            } else {
+                document.getElementById('admin-error').classList.remove('hidden');
+            }
+        };
+
+        window.logoutAdmin = function() {
+            document.getElementById('admin-screen').classList.add('hidden');
+            
+            // Go back to where we came from (Main screen if registered, or reg screen if they clicked somehow)
+            if(document.getElementById('display-user-name').innerText !== '') {
+                document.getElementById('main-screen').classList.remove('hidden');
+            } else {
+                document.getElementById('registration-screen').classList.remove('hidden');
+            }
+        };
+
+        window.fetchStudents = async function() {
+            const tbody = document.getElementById('students-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">กำลังโหลดข้อมูล...</td></tr>';
+            
+            if(!auth.currentUser) return;
+
+            try {
+                // RULE 2: No Complex Queries (No orderBy, just getDocs and sort in memory)
+                const querySnapshot = await getDocs(studentsCollectionRef);
+                const students = [];
+                
+                querySnapshot.forEach((doc) => {
+                    students.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Sort in memory by timestamp descending
+                students.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                if (students.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">ยังไม่มีผู้ลงทะเบียน</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                students.forEach((s, index) => {
+                    const dateObj = new Date(s.timestamp);
+                    const formattedDate = dateObj.toLocaleString('th-TH', { 
+                        year: 'numeric', month: 'short', day: 'numeric', 
+                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                    });
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition';
+                    
+                    let scoreText = s.quizAttempted ? `<span class="text-indigo-600 font-bold">${s.quizScore} / 3</span>` : `<span class="text-slate-400">ยังไม่ทำแบบทดสอบ</span>`;
+
+                    tr.innerHTML = `
+                        <td class="py-3 px-6 text-slate-500">${index + 1}</td>
+                        <td class="py-3 px-6 font-medium text-slate-800">${escapeHtml(s.studentId)}</td>
+                        <td class="py-3 px-6">${escapeHtml(s.name)}</td>
+                        <td class="py-3 px-6">${escapeHtml(s.className)}</td>
+                        <td class="py-3 px-6 text-slate-500 text-xs">${formattedDate}</td>
+                        <td class="py-3 px-6">${scoreText}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch (error) {
+                console.error("Error fetching students:", error);
+                tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-red-500">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}</td></tr>`;
+            }
+        };
+
+        function escapeHtml(unsafe) {
+            return (unsafe || '').toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+        
+    </script>
+
+    <!-- App Interactive Math Logic -->
+    <script>
+        let myChart = null;
+        let currentH = 0, currentK = 0;
+
+        function initChart() {
+            if (myChart !== null) return; // Already initialized
+
+            let ctx = document.getElementById('graphCanvas').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'กราฟรอยเดิม (Ghost)',
+                            data: [],
+                            borderColor: '#94a3b8', // slate-400
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        },
+                        {
+                            label: 'กราฟปัจจุบัน',
+                            data: [],
+                            borderColor: '#4f46e5', // indigo-600
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        },
+                        {
+                            label: 'จุดสำคัญ',
+                            type: 'scatter',
+                            data: [],
+                            backgroundColor: '#ef4444', // red-500
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 }, 
+                    scales: {
+                        x: {
+                            type: 'linear', position: 'bottom',
+                            min: -10, max: 10,
+                            grid: {
+                                color: (context) => context.tick.value === 0 ? '#334155' : '#e2e8f0',
+                                lineWidth: (context) => context.tick.value === 0 ? 2 : 1
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            min: -10, max: 10,
+                            grid: {
+                                color: (context) => context.tick.value === 0 ? '#334155' : '#e2e8f0',
+                                lineWidth: (context) => context.tick.value === 0 ? 2 : 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)})`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Sync inputs and Update Event Listeners
+            const ids = ['a', 'b', 'c'];
+            ids.forEach(id => {
+                const slider = document.getElementById(`slide-${id}`);
+                const num = document.getElementById(`num-${id}`);
+                
+                slider.addEventListener('input', (e) => {
+                    num.value = e.target.value;
+                    updateApp();
+                });
+                num.addEventListener('input', (e) => {
+                    slider.value = e.target.value;
+                    updateApp();
+                });
+            });
+
+            updateApp(); // First draw
+        }
+
+        function formatGeneral(a, b, c) {
+            if (a === 0 && b === 0 && c === 0) return "y = 0";
+            let str = "";
+            if (a !== 0) str += (a === 1 ? "" : a === -1 ? "-" : a) + "x²";
+            if (b !== 0) {
+                let termB = Math.abs(b) === 1 ? "x" : Math.abs(b) + "x";
+                if (str !== "") str += (b > 0 ? " + " : " - ") + termB;
+                else str += (b === 1 ? "" : b === -1 ? "-" : b) + "x";
+            }
+            if (c !== 0) {
+                if (str !== "") str += (c > 0 ? " + " : " - ") + Math.abs(c);
+                else str += c;
+            }
+            return "y = " + str;
+        }
+
+        function formatStandard(a, h, k) {
+            if (a === 0) return "ไม่ใช่ฟังก์ชันกำลังสอง";
+            let str = a === 1 ? "" : a === -1 ? "-" : a;
+            let hStr = h === 0 ? "x²" : `(x ${h > 0 ? "- " + h : "+ " + Math.abs(h)})²`;
+            str += hStr;
+            
+            if (k !== 0) {
+                let kClean = Number.isInteger(k) ? Math.abs(k) : Math.abs(k).toFixed(2);
+                str += k > 0 ? " + " + kClean : " - " + kClean;
+            }
+            return "y = " + str;
+        }
+
+        function updateApp() {
+            if (!myChart) return;
+
+            let a = parseFloat(document.getElementById('num-a').value);
+            let b = parseFloat(document.getElementById('num-b').value);
+            let c = parseFloat(document.getElementById('num-c').value);
+
+            // Calculate Properties
+            if (a === 0) {
+                currentH = 0; currentK = c;
+            } else {
+                currentH = -b / (2 * a);
+                currentK = c - (b * b) / (4 * a);
+            }
+            
+            let hClean = Number.isInteger(currentH) ? currentH : currentH.toFixed(2);
+            let kClean = Number.isInteger(currentK) ? currentK : currentK.toFixed(2);
+
+            // Update Texts
+            document.getElementById('eq-general').innerText = formatGeneral(a, b, c);
+            document.getElementById('eq-standard').innerText = formatStandard(a, currentH, currentK);
+            document.getElementById('prop-vertex').innerText = a === 0 ? "ไม่มี" : `(${hClean}, ${kClean})`;
+            document.getElementById('prop-yint').innerText = `(0, ${c})`;
+            
+            let rangeEl = document.getElementById('prop-range');
+            if (a > 0) rangeEl.innerText = `y ≥ ${kClean}`;
+            else if (a < 0) rangeEl.innerText = `y ≤ ${kClean}`;
+            else rangeEl.innerText = "R";
+
+            let xintText = "ไม่มีจุดตัด";
+            let roots = [];
+            if (a !== 0) {
+                let disc = (b * b) - (4 * a * c);
+                if (disc > 0) {
+                    let x1 = (-b + Math.sqrt(disc)) / (2 * a);
+                    let x2 = (-b - Math.sqrt(disc)) / (2 * a);
+                    roots.push(x1, x2);
+                    xintText = `x = ${x1.toFixed(2)}, ${x2.toFixed(2)}`;
+                } else if (disc === 0) {
+                    roots.push(currentH);
+                    xintText = `x = ${currentH.toFixed(2)}`;
+                }
+            } else if (b !== 0) {
+                let x = -c/b;
+                roots.push(x);
+                xintText = `x = ${x.toFixed(2)}`;
+            }
+            document.getElementById('prop-xint').innerText = xintText;
+
+            // Update Chart Data
+            let lineData = [];
+            for (let x = -11; x <= 11; x += 0.2) {
+                lineData.push({x: x, y: (a * x * x) + (b * x) + c});
+            }
+            myChart.data.datasets[1].data = lineData;
+
+            let scatterData = [];
+            if (a !== 0) scatterData.push({x: currentH, y: currentK});
+            scatterData.push({x: 0, y: c});
+            roots.forEach(rx => {
+                if (Math.abs(rx) > 0.01 || Math.abs(c) > 0.01) scatterData.push({x: rx, y: 0});
+            });
+            
+            let uniqueScatter = scatterData.filter((v,i,a)=>a.findIndex(v2=>(v2.x===v.x && v2.y===v.y))===i);
+            myChart.data.datasets[2].data = uniqueScatter;
+
+            myChart.update();
+        }
+
+        // Global functions for HTML onClick
+        window.saveGhostGraph = function() {
+            if(!myChart) return;
+            const currentData = JSON.parse(JSON.stringify(myChart.data.datasets[1].data));
+            myChart.data.datasets[0].data = currentData;
+            myChart.update();
+        };
+
+        window.clearGhostGraph = function() {
+            if(!myChart) return;
+            myChart.data.datasets[0].data = [];
+            myChart.update();
+        };
+
+        window.resetValues = function() {
+            document.getElementById('slide-a').value = 1;
+            document.getElementById('num-a').value = 1;
+            document.getElementById('slide-b').value = 0;
+            document.getElementById('num-b').value = 0;
+            document.getElementById('slide-c').value = 0;
+            document.getElementById('num-c').value = 0;
+            window.clearGhostGraph();
+            updateApp();
+            document.getElementById('challenge-result').classList.add('hidden');
+        };
+
+        window.checkChallenge = function() {
+            let a = parseFloat(document.getElementById('num-a').value);
+            let resBox = document.getElementById('challenge-result');
+            
+            let isUp = a > 0;
+            let isH2 = Math.abs(currentH - 2) < 0.01;
+            let isKMinus3 = Math.abs(currentK - (-3)) < 0.01;
+
+            resBox.className = "mt-4 text-center font-medium p-4 rounded-lg";
+
+            if (isUp && isH2 && isKMinus3) {
+                resBox.innerHTML = "🎉 สุดยอด! คุณปรับกราฟได้ถูกต้อง (เป็นกราฟหงาย และจุดยอดอยู่ที่ (2, -3))";
+                resBox.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                let msg = "❌ ยังไม่ถูกต้องครับ<br>";
+                if (!isUp) msg += "- กราฟยังไม่หงาย (a ต้องมากกว่า 0)<br>";
+                if (!isH2 || !isKMinus3) msg += `- จุดยอดตอนนี้คือ (${currentH.toFixed(2)}, ${currentK.toFixed(2)}) ยังไม่ใช่ (2, -3)`;
+                resBox.innerHTML = msg;
+                resBox.classList.add('bg-red-100', 'text-red-800');
+            }
+        };
+
+        window.checkQuiz = function(btn, isCorrect, expId) {
+            // ระบบเก็บคะแนนและซิงค์ Firebase
+            if (!window.answeredQuestions) window.answeredQuestions = new Set();
+            if (!window.quizScore) window.quizScore = 0;
+            
+            let isFirstAnswer = !window.answeredQuestions.has(expId);
+            if (isFirstAnswer) {
+                window.answeredQuestions.add(expId);
+                if (isCorrect) window.quizScore += 1;
+                
+                if (typeof window.updateScoreInFirebase === 'function') {
+                    window.updateScoreInFirebase(window.quizScore);
+                }
+            }
+
+            let parent = btn.parentElement;
+            let buttons = parent.querySelectorAll('button');
+            buttons.forEach(b => {
+                b.className = 'text-left px-4 py-2 border rounded-lg hover:bg-slate-50 transition bg-white text-slate-800';
+            });
+
+            if (isCorrect) {
+                btn.classList.add('bg-green-100', 'border-green-400', 'font-bold');
+                btn.classList.remove('bg-white', 'hover:bg-slate-50');
+            } else {
+                btn.classList.add('bg-red-100', 'border-red-400');
+                btn.classList.remove('bg-white', 'hover:bg-slate-50');
+            }
+            
+            document.getElementById(expId).classList.remove('hidden');
+        };
+    </script>
+</body>
+</html>
